@@ -32,9 +32,4 @@ describe('<App />', () => {
     const renderedComponent = mount(<Component />);
     expect(renderedComponent.find(Route).length).not.toBe(0);
   });
-
-  it('should render Footer', () => {
-    const renderedComponent = mount(<Component />);
-    expect(renderedComponent.find(Footer).length).toBe(1);
-  });
 });
