@@ -1,0 +1,41 @@
+@import '~styles/settings/settings';
+
+.cryptoCurrency {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid $medium-gray;
+  border-radius: $global-radius;
+  margin-bottom: $rem-md;
+  padding: $rem-mn;
+  @include breakpoint(small only) {
+    display: block;
+  }
+  &__symbol {
+    color: $darkest-gray;
+  }
+  &__name {
+    color: $dark-gray;
+  }
+  &__graph {
+    height: rem-calc(48px);
+  }
+  &__currentPrice {
+    font-size: $fs-mx;
+    &--green {
+      color: $green;
+    }
+    &--red {
+      color: $alert;
+    }
+  }
+  &__priceChange {
+    font-size: $fs-mn;
+    &--green {
+      color: $dark-green;
+    }
+    &--red {
+      color: $danger;
+    }
+  }
+}
