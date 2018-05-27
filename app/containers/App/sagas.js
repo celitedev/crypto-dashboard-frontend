@@ -23,7 +23,7 @@ const LOGOUT = 'Crypto/App/LOGOUT';
 const RESEND_TOKEN = 'Crypto/App/RESEND_TOKEN';
 const USER = 'Crypto/App/USER';
 const USER_DATA_UPDATE = 'Crypto/App/UPDATE_USER_DATA';
-
+const USER_BALANCE = 'Crypto/App/USER_BALANCE';
 const SET_META_JSON = 'Crypto/App/SET_META_JSON';
 
 // ------------------------------------
@@ -122,6 +122,22 @@ const userRequestError = error => ({
   payload: error,
 });
 
+export const requestUserBalance = () => ({
+  type: USER_BALANCE + REQUESTED,
+});
+const userBalanceRequestSuccess = (payload: Object) => ({
+  type: USER_BALANCE + SUCCEDED,
+  payload,
+});
+const userBalanceRequestFailed = error => ({
+  type: USER_BALANCE + FAILED,
+  payload: error,
+});
+const userBalanceRequestError = error => ({
+  type: USER_BALANCE + ERROR,
+  payload: error,
+});
+
 export const setMetaJson = (path: string, value: ?Object) => ({
   type: SET_META_JSON,
   payload: value,
@@ -140,8 +156,9 @@ const initialState = fromJS({
   error: '',
   isResending: false,
   resendError: '',
-  isConfirming: false,
-  confirmError: '',
+  balance: storage.get('balance'),
+  isBalanceLoading: false,
+  balanceError: '',
   uploadedPhoto: '',
   isUploading: false,
   metaJson: {},
@@ -251,6 +268,22 @@ export const reducer = (
     case USER + ERROR:
       return state.set('isLoading', false);
 
+    case USER_BALANCE + REQUESTED:
+      return state.set('isBalanceLoading', true);
+
+    case USER_BALANCE + SUCCEDED:
+      storage.set('balance', payload.balance);
+      return state
+        .set('isBalanceLoading', false)
+        .set('balance', payload.balance)
+        .set('balanceError', '');
+
+    case USER_BALANCE + FAILED:
+      return state.set('isBalanceLoading', false).set('balanceError', payload);
+
+    case USER_BALANCE + ERROR:
+      return state.set('isLoading', false);
+
     case SET_META_JSON:
       if (meta.path)
         return state.setIn(['metaJson', ...meta.path], fromJS(payload));
@@ -344,6 +377,7 @@ function* LoginRequest({ payload }) {
     });
     if (response.status === 200) {
       yield put(loginRequestSuccess(response.data));
+      yield put(requestUserBalance());
     } else {
       yield put(loginRequestFailed(JSON.stringify(response.data)));
     }
@@ -369,12 +403,30 @@ function* UserRequest() {
   }
 }
 
+function* UserBalanceRequest() {
+  const token = yield select(getToken);
+  try {
+    const response = yield call(request, {
+      url: `${API_URL}/users/balance`,
+      headers: { Authorization: `JWT ${token}` },
+    });
+    if (response.status === 200) {
+      yield put(userBalanceRequestSuccess(response.data));
+    } else {
+      yield put(userBalanceRequestFailed(JSON.stringify(response.data)));
+    }
+  } catch (error) {
+    yield put(userBalanceRequestError(error));
+  }
+}
+
 export default function*(): Saga<void> {
   yield [
     takeLatest(USER_DATA_UPDATE + REQUESTED, UpdateUserDataRequest),
     takeLatest(REGISTER + REQUESTED, RegisterRequest),
     takeLatest(RESEND_TOKEN + REQUESTED, ResendTokenRequest),
     takeLatest(USER + REQUESTED, UserRequest),
+    takeLatest(USER_BALANCE + REQUESTED, UserBalanceRequest),
     takeLatest(LOGIN + REQUESTED, LoginRequest),
   ];
 }
