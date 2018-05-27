@@ -7,180 +7,73 @@ import { call, put, select, takeEvery, takeLatest } from 'redux-saga/effects';
 import type { Saga } from 'redux-saga';
 import request from 'utils/request';
 import encodeURI from 'utils/encodeURI';
-import {
-  API_URL,
-  NEWS_API_URL,
-  REQUESTED,
-  STARTED,
-  SKIPPED,
-  SUCCEDED,
-  FAILED,
-} from 'utils/constants';
+import { API_URL, REQUESTED, SUCCEDED, FAILED } from 'utils/constants';
 import type { Action, State } from 'types/common';
-
+import { getToken } from 'containers/App/selectors';
+import { logout, requestUserBalance } from 'containers/App/sagas';
 // ------------------------------------
 // Constants
 // ------------------------------------
-const GET_FILTERABLE_PRODUCTS = 'Crypto/HomePage/GET_FILTERABLE_PRODUCTS';
-const GET_RECENT_NEWS = 'Crypto/HomePage/GET_RECENT_NEWS';
-const GET_RECENT_REVIEWS = 'Crypto/HomePage/GET_RECENT_REVIEWS';
-const GET_RECENT_VIDEOS = 'Crypto/HomePage/GET_RECENT_VIDEOS';
+const POPULAR_CURRENCIES = 'Crypto/HomePage/POPULAR_CURRENCIES';
+const MAKE_TRANSACTION = 'Crypto/HomePage/MAKE_TRANSACTION';
+const TRANSACTION = 'Crypto/HomePage/TRANSACTION';
 // ------------------------------------
 // Actions
 // ------------------------------------
-export const requestFilterableProducts = (index: number, category: string) => ({
-  type: GET_FILTERABLE_PRODUCTS + REQUESTED,
-  payload: index,
-  meta: { category },
+export const requestPopularCurrencies = () => ({
+  type: POPULAR_CURRENCIES + REQUESTED,
 });
-const startFilterableProductsRequest = (category: string) => ({
-  type: GET_FILTERABLE_PRODUCTS + STARTED,
-  meta: { category },
-});
-const skipFilterableProductsRequest = () => ({
-  type: GET_FILTERABLE_PRODUCTS + SKIPPED,
-});
-const filterableProductsRequestSuccess = (
-  category: string,
-  index: number,
-  data: Object
-) => ({
-  type: GET_FILTERABLE_PRODUCTS + SUCCEDED,
+const popularCurrenciesRequestSuccess = (data: Object) => ({
+  type: POPULAR_CURRENCIES + SUCCEDED,
   payload: data,
-  meta: {
-    index,
-    category,
-  },
 });
-const filterableProductsRequestFailed = error => ({
-  type: GET_FILTERABLE_PRODUCTS + FAILED,
+const popularCurrenciesRequestFailed = () => ({
+  type: POPULAR_CURRENCIES + FAILED,
+});
+
+export const requestTransaction = (data: Object) => ({
+  type: TRANSACTION + REQUESTED,
+  payload: data,
+});
+
+const transactionRequestSuccess = (data: Object) => ({
+  type: TRANSACTION + SUCCEDED,
+  payload: data,
+});
+
+const transactionRequestFailed = error => ({
+  type: TRANSACTION + FAILED,
   payload: error,
 });
 
-export const requestRecentNews = () => ({
-  type: GET_RECENT_NEWS + REQUESTED,
-});
-const recentNewsRequestSuccess = (data: Object) => ({
-  type: GET_RECENT_NEWS + SUCCEDED,
+export const makeTransaction = (data: Object) => ({
+  type: MAKE_TRANSACTION + REQUESTED,
   payload: data,
-});
-const recentNewsRequestFailed = error => ({
-  type: GET_RECENT_NEWS + FAILED,
-  payload: error,
 });
 
-export const requestRecentReviews = () => ({
-  type: GET_RECENT_REVIEWS + REQUESTED,
-});
-const recentReviewsRequestSuccess = (data: Object) => ({
-  type: GET_RECENT_REVIEWS + SUCCEDED,
-  payload: data,
-});
-const recentReviewsRequestFailed = error => ({
-  type: GET_RECENT_REVIEWS + FAILED,
-  payload: error,
+const transactionMakeRequestSuccess = () => ({
+  type: MAKE_TRANSACTION + SUCCEDED,
 });
 
-export const requestRecentVideos = () => ({
-  type: GET_RECENT_VIDEOS + REQUESTED,
-});
-const recentVideosRequestSuccess = (data: Object) => ({
-  type: GET_RECENT_VIDEOS + SUCCEDED,
-  payload: data,
-});
-const recentVideosRequestFailed = () => ({
-  type: GET_RECENT_VIDEOS + FAILED,
+const transactionMakeRequestFailed = error => ({
+  type: MAKE_TRANSACTION + FAILED,
+  payload: error,
 });
 
 // ------------------------------------
 // Reducer
 // ------------------------------------
 const initialState = fromJS({
-  strains: {
-    url: 'Strain',
-    filters: [
-      {
-        index: 0,
-        name: 'Most popular',
-        sort: '-reviewCount',
-        items: null,
-      },
-      {
-        index: 1,
-        name: 'Trending',
-        sort: '-rating,-createdOn',
-        items: null,
-      },
-      {
-        index: 2,
-        name: 'New',
-        sort: '-createdOn',
-        items: null,
-      },
-    ],
-    isLoading: true,
-    active: 0,
-  },
-  accessories: {
-    url: { $exists: false },
-    filters: [
-      {
-        index: 0,
-        name: 'Most popular',
-        sort: '-reviewCount',
-        items: null,
-      },
-      {
-        index: 1,
-        name: 'Trending',
-        sort: '-rating,-createdOn',
-        items: null,
-      },
-      {
-        index: 2,
-        name: 'New',
-        sort: '-createdOn',
-        items: null,
-      },
-    ],
-    isLoading: true,
-    active: 0,
-  },
-  oils: {
-    url: 'Oil',
-    filters: [
-      {
-        index: 0,
-        name: 'Most popular',
-        sort: '-reviewCount',
-        items: null,
-      },
-      {
-        index: 1,
-        name: 'Trending',
-        sort: '-rating,-createdOn',
-        items: null,
-      },
-      {
-        index: 2,
-        name: 'New',
-        sort: '-createdOn',
-        items: null,
-      },
-    ],
-    isLoading: true,
-    active: 0,
-  },
-  recentReviews: {
-    data: {
-      hits: {},
-    },
-    isLoading: false,
-  },
-  recentVideos: {
+  currencies: {
     data: {},
     isLoading: false,
   },
+  transactions: {
+    data: {},
+    isLoading: false,
+  },
+  isLoading: false,
+  error: '',
 });
 
 export const reducer = (
@@ -188,53 +81,36 @@ export const reducer = (
   { type, payload, meta }: Action
 ) => {
   switch (type) {
-    case GET_FILTERABLE_PRODUCTS + REQUESTED:
-      return state.setIn([meta.category, 'active'], payload);
+    case POPULAR_CURRENCIES + REQUESTED:
+      return state.setIn(['currencies', 'isLoading'], true);
 
-    case GET_FILTERABLE_PRODUCTS + STARTED:
-      return state.setIn([meta.category, 'isLoading'], true);
-
-    case GET_FILTERABLE_PRODUCTS + SUCCEDED:
+    case POPULAR_CURRENCIES + SUCCEDED:
       return state
-        .setIn([meta.category, 'isLoading'], false)
-        .setIn(
-          [meta.category, 'filters', meta.index, 'items'],
-          fromJS(payload.data.hits)
-        );
+        .setIn(['currencies', 'isLoading'], false)
+        .setIn(['currencies', 'data'], fromJS(payload.object));
 
-    case GET_FILTERABLE_PRODUCTS + FAILED:
-      return state.setIn([meta.category, 'isLoading'], false);
+    case POPULAR_CURRENCIES + FAILED:
+      return state.setIn(['currencies', 'isLoading'], false);
 
-    case GET_RECENT_NEWS + REQUESTED:
-      return state.set('isLoading', true);
+    case MAKE_TRANSACTION + REQUESTED:
+      return state.set('isLoading', true).set('error', '');
 
-    case GET_RECENT_NEWS + SUCCEDED:
-      return state.set('isLoading', false).set('news', fromJS(payload));
+    case MAKE_TRANSACTION + SUCCEDED:
+      return state.set('isLoading', false).set('error', '');
 
-    case GET_RECENT_NEWS + FAILED:
-      return state.set('news', payload);
+    case MAKE_TRANSACTION + FAILED:
+      return state.set('isLoading', false).set('error', payload);
 
-    case GET_RECENT_REVIEWS + REQUESTED:
-      return state.setIn(['recentReviews', 'isLoading'], true);
+    case TRANSACTION + REQUESTED:
+      return state.setIn(['transactions', 'isLoading'], true);
 
-    case GET_RECENT_REVIEWS + SUCCEDED:
+    case TRANSACTION + SUCCEDED:
       return state
-        .setIn(['recentReviews', 'isLoading'], false)
-        .setIn(['recentReviews', 'data'], fromJS(payload));
+        .setIn(['transactions', 'isLoading'], false)
+        .setIn(['transactions', 'data'], fromJS(payload));
 
-    case GET_RECENT_REVIEWS + FAILED:
-      return state.setIn(['recentReviews', 'isLoading'], false);
-
-    case GET_RECENT_VIDEOS + REQUESTED:
-      return state.setIn(['recentVideos', 'isLoading'], true);
-
-    case GET_RECENT_VIDEOS + SUCCEDED:
-      return state
-        .setIn(['recentVideos', 'isLoading'], false)
-        .setIn(['recentVideos', 'data'], fromJS(payload));
-
-    case GET_RECENT_VIDEOS + FAILED:
-      return state.setIn(['recentVideos', 'isLoading'], false);
+    case TRANSACTION + FAILED:
+      return state.setIn(['transactions', 'isLoading'], false);
 
     default:
       return state;
@@ -244,94 +120,75 @@ export const reducer = (
 // ------------------------------------
 // Selectors
 // ------------------------------------
-const getFilter = (index, category, state) =>
-  state.getIn(['home', category, 'filters', index, 'items']);
-const getUrl = (index, category, state) =>
-  `products?query=${encodeURI({
-    __t: state.getIn(['home', category, 'url']),
-  })}&page=1&per_page=4&populate=business&sort=${state.getIn([
-    'home',
-    category,
-    'filters',
-    index,
-    'sort',
-  ])}`;
 
 // ------------------------------------
 // Sagas
 // ------------------------------------
-function* FilterableProductsRequest({ payload: index, meta: { category } }) {
-  const filterItems = yield select(getFilter.bind(null, index, category));
-  const url = yield select(getUrl.bind(null, index, category));
-  if (filterItems) {
-    yield put(skipFilterableProductsRequest());
-  } else {
-    try {
-      yield put(startFilterableProductsRequest(category));
-      const data = yield call(request, { url: `${API_URL}/${url}` });
-      yield put(filterableProductsRequestSuccess(category, index, data));
-    } catch (error) {
-      yield put(filterableProductsRequestFailed(error));
+
+function* PopularCurrenciesRequest() {
+  try {
+    const response = yield call(request, {
+      url: 'https://apidev.centralix.io/currencies/get/?page=1&length=7',
+      headers: {
+        Authorization: 'Token 609bc42affe9c9a493d63e38ee65ca8d1e7ab45c',
+      },
+    });
+    if (response.status === 200) {
+      yield put(popularCurrenciesRequestSuccess(response.data));
+    } else {
+      yield put(popularCurrenciesRequestFailed(JSON.stringify(response.data)));
     }
+  } catch (error) {
+    yield put(popularCurrenciesRequestFailed());
   }
 }
 
-function* RecentNewsRequest() {
-  const url = `${NEWS_API_URL}/posts?per_page=3&_embed`;
+function* TransactionMakeRequest({ payload }) {
+  const token = yield select(getToken);
   try {
-    const response = yield call(request, { url });
-    if (response.status === 200) {
-      yield put(recentNewsRequestSuccess(response.data));
+    const response = yield call(request, {
+      method: 'POST',
+      url: `${API_URL}/make-transaction/`,
+      headers: { Authorization: `JWT ${token}` },
+      data: payload,
+    });
+    if (response.status === 201) {
+      yield put(transactionMakeRequestSuccess(response.data));
+      yield put(requestUserBalance());
+    } else if (response.status === 401) {
+      yield put(logout());
     } else {
-      yield put(recentNewsRequestFailed(response.data[0].message));
+      yield put(transactionMakeRequestFailed(JSON.stringify(response.data)));
     }
   } catch (error) {
-    yield put(recentNewsRequestFailed(error));
+    yield put(transactionMakeRequestFailed(error));
   }
 }
 
-function* RecentReviewsRequest() {
-  const url = `${API_URL}/product-reviews?sort=-createdOn&populate=user,product.business&page=1&per_page=3`;
+function* TransactionRequest({ payload }) {
+  const token = yield select(getToken);
   try {
-    const response = yield call(request, { url });
+    const response = yield call(request, {
+      method: 'GET',
+      url: `${API_URL}/transactions/`,
+      headers: { Authorization: `JWT ${token}` },
+    });
     if (response.status === 200) {
-      yield put(recentReviewsRequestSuccess(response.data));
+      yield put(transactionRequestSuccess(response.data));
+    } else if (response.status === 401) {
+      yield put(logout());
     } else {
-      yield put(recentReviewsRequestFailed(response.data[0].message));
+      yield put(transactionRequestFailed(JSON.stringify(response.data)));
     }
   } catch (error) {
-    yield put(recentReviewsRequestFailed(error));
-  }
-}
-
-function* RecentVideosRequest() {
-  const url = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=UCsGKEoUX71bk8SWRZyQxcQQ&key=AIzaSyAj9_wplm0clr6xkNo6rbDucLUG29l7QX8`;
-  try {
-    const response = yield call(request, { url });
-    if (response.status === 200) {
-      const playlistId =
-        response.data.items[0].contentDetails.relatedPlaylists.uploads;
-      const playlists = yield call(request, {
-        url: `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${playlistId}&key=AIzaSyAj9_wplm0clr6xkNo6rbDucLUG29l7QX8`,
-      });
-      if (playlists.status === 200) {
-        yield put(recentVideosRequestSuccess(playlists.data));
-      } else {
-        yield put(recentVideosRequestFailed());
-      }
-    } else {
-      yield put(recentVideosRequestFailed());
-    }
-  } catch (error) {
-    yield put(recentVideosRequestFailed());
+    yield put(transactionRequestFailed(error));
   }
 }
 
 export default function*(): Saga<void> {
   yield [
-    takeLatest(GET_RECENT_VIDEOS + REQUESTED, RecentVideosRequest),
-    takeLatest(GET_RECENT_REVIEWS + REQUESTED, RecentReviewsRequest),
-    takeLatest(GET_RECENT_NEWS + REQUESTED, RecentNewsRequest),
-    takeEvery(GET_FILTERABLE_PRODUCTS + REQUESTED, FilterableProductsRequest),
+    takeLatest(POPULAR_CURRENCIES + REQUESTED, PopularCurrenciesRequest),
+    takeLatest(MAKE_TRANSACTION + REQUESTED, TransactionMakeRequest),
+    takeLatest(TRANSACTION + REQUESTED, TransactionRequest),
   ];
 }
