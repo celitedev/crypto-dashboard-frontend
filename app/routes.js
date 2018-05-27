@@ -19,6 +19,12 @@ class Routes extends Component<{}> {
           )}
         />
         <Route
+          path="/transactions"
+          render={props => (
+            <Load loader={() => import('pages/Transactions')} {...props} />
+          )}
+        />
+        <Route
           path="/login"
           render={props => (
             <Load loader={() => import('pages/Login')} {...props} />
