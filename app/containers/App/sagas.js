@@ -340,6 +340,7 @@ function* RegisterRequest({ payload }) {
     });
     if (response.status === 201) {
       yield put(registerRequestSuccess(response.data));
+      yield put(requestUserBalance());
     } else {
       yield put(registerRequestFailed(JSON.stringify(response.data)));
     }
