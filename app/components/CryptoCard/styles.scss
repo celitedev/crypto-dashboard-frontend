@@ -1,0 +1,8 @@
+@import '~styles/settings/settings';
+
+.cryptoCard {
+  border: 1px solid $medium-gray;
+  border-radius: $global-radius;
+  margin-bottom: $rem-md;
+  padding: $rem-mn;
+}
