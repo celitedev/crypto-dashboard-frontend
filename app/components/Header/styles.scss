@@ -48,6 +48,9 @@
       height: 20px;
     }
   }
+  &__title {
+    text-decoration: none;
+  }
   &__authBtn {
     @include breakpoint(small only) {
       width: 60px;
